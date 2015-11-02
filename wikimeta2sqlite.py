@@ -19,6 +19,9 @@ argParser.add_argument('sqlitedb',
         help='The sqlite table to fill.')
 argParser.add_argument('table_prefix',
         help='The prefix of table names in SQLite.')
+argParser.add_argument('--min-date',
+        help='Discard all timestamps below this date (ISO-8601 format).',
+        default='')
 
 group = argParser.add_mutually_exclusive_group()
 group.add_argument('--gzip',
@@ -38,6 +41,7 @@ elif args.gzip:
 else:
     inputFile = open(args.inputFile, 'rU')
 
+minDate = args.min_date
 
 conn = sqlite3.connect(args.sqlitedb)
 # Always return bytestrings
@@ -185,34 +189,37 @@ def insertWithRevId(cur, insert_statement, dataList, revId):
 try:
     blockCounter = 0
     for block in blockReader(inputFile):
-        blockCounter += 1
+        # Only count this block if the timestamp is greater than the
+        # minimum data passed.
+        if block['REVISION']['timestamp'] > minDate:
+            blockCounter += 1
 
-        try:
-            revData = block['REVISION']
-            revId = revData['rev_id']
-            cur.execute(insert_revision,
-                    (revData['article_id'], revData['rev_id'],
-                     revData['article_title'], revData['timestamp'],
-                     revData['username'], revData['user_id']))
+            try:
+                revData = block['REVISION']
+                revId = revData['rev_id']
+                cur.execute(insert_revision,
+                        (revData['article_id'], revData['rev_id'],
+                         revData['article_title'], revData['timestamp'],
+                         revData['username'], revData['user_id']))
 
-            insertWithRevId(cur, insert_category, block['CATEGORY'], revId)
-            insertWithRevId(cur, insert_image, block['IMAGE'], revId)
-            insertWithRevId(cur, insert_main, block['MAIN'], revId)
-            insertWithRevId(cur, insert_talk, block['TALK'], revId)
-            insertWithRevId(cur, insert_user, block['USER'], revId)
-            insertWithRevId(cur, insert_user_talk, block['USER_TALK'], revId)
-            insertWithRevId(cur, insert_other, block['OTHER'], revId)
-            insertWithRevId(cur, insert_external, block['EXTERNAL'], revId)
-            insertWithRevId(cur, insert_template, block['TEMPLATE'], revId)
+                insertWithRevId(cur, insert_category, block['CATEGORY'], revId)
+                insertWithRevId(cur, insert_image, block['IMAGE'], revId)
+                insertWithRevId(cur, insert_main, block['MAIN'], revId)
+                insertWithRevId(cur, insert_talk, block['TALK'], revId)
+                insertWithRevId(cur, insert_user, block['USER'], revId)
+                insertWithRevId(cur, insert_user_talk, block['USER_TALK'], revId)
+                insertWithRevId(cur, insert_other, block['OTHER'], revId)
+                insertWithRevId(cur, insert_external, block['EXTERNAL'], revId)
+                insertWithRevId(cur, insert_template, block['TEMPLATE'], revId)
 
-            cur.execute(insert_comment, (revId, block['COMMENT']))
-            cur.execute(insert_minor, (revId, block['MINOR']))
-            cur.execute(insert_textdata, (revId, block['TEXTDATA']))
-        except Exception, e:
-            print("Error in block %d: %s" % (blockCounter, e), file=sys.stderr)
+                cur.execute(insert_comment, (revId, block['COMMENT']))
+                cur.execute(insert_minor, (revId, block['MINOR']))
+                cur.execute(insert_textdata, (revId, block['TEXTDATA']))
+            except Exception, e:
+                print("Error in block %d: %s" % (blockCounter, e), file=sys.stderr)
 
-        if blockCounter % 100000 == 0:
-            logTime('{} records processed'.format(blockCounter))
+            if blockCounter % 100000 == 0:
+                logTime('{} records processed'.format(blockCounter))
 
 except Exception, e:
     print('General error on line %d: %s' % (blockCounter, e), file=sys.stderr)

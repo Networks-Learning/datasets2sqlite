@@ -8,7 +8,12 @@ import sqlite3
 import bz2
 import gzip
 import json
+import six
 import datetime as D
+
+if sys.version_info > (3,):
+    unicode = str
+
 
 def logTime(chkpoint):
     print('*** Checkpoint: {} at \x1b[31m{}\x1b[0m'.format(chkpoint, D.datetime.now()))
@@ -32,7 +37,7 @@ def guess_types(reader, max_sample_size=100, headers=None):
     '''
 
     if headers is None:
-        _headers = sorted(reader.next().keys())
+        _headers = sorted(six.advance_iterator(reader).keys())
     else:
         _headers = sorted(headers)
 
@@ -41,6 +46,7 @@ def guess_types(reader, max_sample_size=100, headers=None):
     types = ['text'] * num_columns
     # order matters
     # (order in form of type you want used in case of tie to be last)
+
     options = [
         ('text', unicode),
         ('real', float),
@@ -121,14 +127,14 @@ args = argParser.parse_args()
 
 inputFile = None
 if args.bz2:
-    inputFile = bz2.BZ2File(args.jsonfile, 'rU')
+    inputFile = bz2.BZ2File(args.jsonfile, 'rt')
 elif args.gzip:
-    inputFile = gzip.open(args.jsonfile, 'rU')
+    inputFile = gzip.open(args.jsonfile, 'rt')
 else:
-    inputFile = open(args.jsonfile, 'rU')
+    inputFile = open(args.jsonfile, 'rt')
 
 if args.headers is not None:
-    with open(args.headers, 'rU') as headersFile:
+    with open(args.headers, 'rt') as headersFile:
         providedHeaders = [x.strip() for x in headersFile.readlines()]
 else:
     providedHeaders = None
@@ -169,11 +175,11 @@ try:
                 else int(x) if y == 'integer'
                 else unicode(x) for (x,y) in zip(row, types) ]
             cur.execute(insert_query, row)
-        except ValueError, e:
+        except ValueError as e:
             print("Unable to convert value '%s' to type '%s' on line %d" % (x, y, line), file=sys.stderr)
-        except Exception, e:
+        except Exception as e:
             print("Error on line %d: %s" % (line, e), file=sys.stderr)
-except Exception, e:
+except Exception as e:
     print('General error on line %d: %s' % (line, e), file=sys.stderr)
     logTime('Rolling back changes')
     conn.rollback()

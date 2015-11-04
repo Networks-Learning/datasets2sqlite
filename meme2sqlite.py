@@ -105,7 +105,7 @@ def blockReader(inputFile):
                 # Have reached the end of file
                 break
 
-        except IOError, e:
+        except IOError as e:
             print('Encountered error: ', e)
             break
 

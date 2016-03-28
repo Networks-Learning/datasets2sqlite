@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 import sqlite3
 import os
@@ -120,8 +121,7 @@ def dump_files(file_names, anathomy,
     logging.basicConfig(filename=os.path.join(dump_path, log_filename), level=logging.INFO)
     db = sqlite3.connect(os.path.join(dump_path, dump_database_name))
     for file in file_names:
-        print
-        "Opening {0}.xml".format(file)
+        print("Opening {0}.xml".format(file))
         with open(os.path.join(dump_path, file + '.xml')) as xml_file:
             tree = etree.iterparse(xml_file)
             table_name = file
@@ -134,7 +134,7 @@ def dump_files(file_names, anathomy,
             try:
                 logging.info(sql_create)
                 db.execute(sql_create)
-            except Exception, e:
+            except Exception as e:
                 logging.warning(e)
 
             for events, row in tree:
@@ -146,13 +146,13 @@ def dump_files(file_names, anathomy,
                             columns=', '.join(row.attrib.keys()),
                             values=('?, ' * len(row.attrib.keys()))[:-2])
                         db.execute(query, row.attrib.values())
-                        # print ".",
-                except Exception, e:
+                        # print('.', end='', flush=True)
+                except Exception as e:
                     logging.warning(e)
-                    print "x",
+                    # print('x', end='', flush=True)
                 finally:
                     row.clear()
-            print "\n"
+            print("\n")
             db.commit()
             del (tree)
 

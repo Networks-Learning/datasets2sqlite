@@ -117,8 +117,11 @@ def dump_files(file_names, anathomy,
                dump_database_name='stackoverflow.sqlite',
                create_query='CREATE TABLE IF NOT EXISTS {table} ({fields})',
                insert_query='INSERT INTO {table} ({columns}) VALUES ({values})',
-               log_filename='so-parser.log'):
-    logging.basicConfig(filename=os.path.join(dump_path, log_filename), level=logging.INFO)
+               log_filename='so-parser.log',
+               level=logging.INFO):
+    logging.basicConfig(filename=os.path.join(dump_path, log_filename),
+                        level=level)
+    errors = False
     db = sqlite3.connect(os.path.join(dump_path, dump_database_name))
     for file in file_names:
         print("Opening {0}.xml".format(file))
@@ -135,26 +138,33 @@ def dump_files(file_names, anathomy,
                 logging.info(sql_create)
                 db.execute(sql_create)
             except Exception as e:
+                logging.warning('During creation of table:')
                 logging.warning(e)
+                errors = True
 
             for events, row in tree:
                 try:
                     if row.attrib.values():
-                        logging.debug(row.attrib.keys())
+                        logging.debug(row.attrib.items())
+                        keys, values = list(zip(*row.attrib.items()))
                         query = insert_query.format(
                             table=table_name,
-                            columns=', '.join(row.attrib.keys()),
-                            values=('?, ' * len(row.attrib.keys()))[:-2])
-                        db.execute(query, row.attrib.values())
+                            columns=', '.join(keys),
+                            values=('?, ' * len(values))[:-2])
+                        db.execute(query, values)
                         # print('.', end='', flush=True)
                 except Exception as e:
                     logging.warning(e)
-                    # print('x', end='', flush=True)
+                    print('x', end='', flush=True)
+                    errors = True
                 finally:
                     row.clear()
             print("\n")
             db.commit()
             del (tree)
+
+    if errors:
+        print("\nThere were errors.\n")
 
 
 if __name__ == '__main__':
